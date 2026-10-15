@@ -5,7 +5,8 @@ A super simple FastAPI application that allows students to view and sign up for 
 ## Features
 
 - View all available extracurricular activities
-- Sign up for activities
+- Teacher sign-in to register or unregister students
+- Students can view activity rosters without signing in
 
 ## Getting Started
 
@@ -15,22 +16,53 @@ A super simple FastAPI application that allows students to view and sign up for 
    pip install fastapi uvicorn
    ```
 
-2. Run the application:
+2. From the `src` directory, run the application:
 
    ```
-   python app.py
+   uvicorn app:app --reload
    ```
 
 3. Open your browser and go to:
    - API documentation: http://localhost:8000/docs
    - Alternative documentation: http://localhost:8000/redoc
+   - Activities website: http://localhost:8000/
+
+## Teacher Accounts
+
+Teacher accounts are stored in `src/teachers.json`. The file maps usernames to
+PBKDF2 password hashes; do not store plaintext passwords there. Generate a hash
+from the `src` directory:
+
+```sh
+python -c "from getpass import getpass; from app import hash_password; print(hash_password(getpass('Teacher password: ')))"
+```
+
+Add the resulting hash to `teachers.json`, for example:
+
+```json
+{
+  "teacher1": "pbkdf2_sha256$600000$...$..."
+}
+```
+
+The application refuses sign-in until at least one teacher is configured.
+Sessions use a signed, HTTP-only cookie that expires after eight hours. For
+deployment, set a persistent random `SESSION_SECRET` and set
+`SESSION_COOKIE_SECURE=true` when serving the site over HTTPS. Without an
+explicit `SESSION_SECRET`, a random secret is generated at startup, so signing
+in again is required after a restart. Configured session secrets must be at
+least 32 characters long.
 
 ## API Endpoints
 
 | Method | Endpoint                                                          | Description                                                         |
 | ------ | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
 | GET    | `/activities`                                                     | Get all activities with their details and current participant count |
-| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Sign up for an activity                                             |
+| POST   | `/auth/login`                                                     | Sign in as a teacher and receive a session cookie                   |
+| GET    | `/auth/me`                                                        | Get the signed-in teacher                                          |
+| POST   | `/auth/logout`                                                    | Sign out and clear the session cookie                              |
+| POST   | `/activities/{activity_name}/signup?email=student@mergington.edu` | Register a student (teacher session required)                      |
+| DELETE | `/activities/{activity_name}/unregister?email=student@mergington.edu` | Unregister a student (teacher session required)                  |
 
 ## Data Model
 
